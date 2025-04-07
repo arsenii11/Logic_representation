@@ -48,15 +48,6 @@ data class Rule(val antecedents: List<Predicate>, val consequent: Predicate) {
 }
 
 // --- Unification Implementation ---
-
-/**
- * Attempts to unify two terms, finding a substitution that makes them identical.
- *
- * @param x The first term.
- * @param y The second term.
- * @param subst The current substitution map (will be modified on success).
- * @return True if unification is successful, false otherwise. The substitution map is updated in place.
- */
 fun unify(x: Term, y: Term, subst: Substitution): Boolean {
     when {
         // 1. If x and y are identical, unification succeeds with the current substitution.
@@ -90,14 +81,7 @@ fun unify(x: Term, y: Term, subst: Substitution): Boolean {
     }
 }
 
-/**
- * Helper function to unify a variable with a term.
- *
- * @param variable The variable to unify.
- * @param term The term to unify the variable with.
- * @param subst The current substitution map (modified on success).
- * @return True if unification succeeds, false otherwise.
- */
+
 private fun unifyVariable(variable: Variable, term: Term, subst: Substitution): Boolean {
     // 1. If the variable is already bound in the substitution:
     if (variable in subst) {
@@ -122,15 +106,6 @@ private fun unifyVariable(variable: Variable, term: Term, subst: Substitution): 
     return true
 }
 
-/**
- * Performs the occurs check: verifies that the variable does not occur within the term
- * it is being bound to, considering the current substitution. This prevents infinite loops.
- *
- * @param variable The variable being bound.
- * @param term The term the variable is being bound to.
- * @param subst The current substitution.
- * @return True if the variable occurs within the term, false otherwise.
- */
 private fun occursCheck(variable: Variable, term: Term, subst: Substitution): Boolean {
     return when {
         // If term is the same variable, it occurs.
@@ -147,14 +122,6 @@ private fun occursCheck(variable: Variable, term: Term, subst: Substitution): Bo
     }
 }
 
-/**
- * Applies a substitution to a term, replacing variables with their bound values.
- * If a variable is encountered that is not in the substitution, it remains unchanged.
- *
- * @param term The term to apply the substitution to.
- * @param subst The substitution map.
- * @return A new term with variables replaced according to the substitution.
- */
 fun applySubstitution(term: Term, subst: Substitution): Term {
     return when {
         // If term is a variable and is bound, return its binding (recursively applying substitution to it).
@@ -176,7 +143,6 @@ fun applySubstitution(term: Term, subst: Substitution): Term {
 
 
 // --- Forward Chaining Engine with Unification ---
-
 class ForwardChainingEngineWithUnification {
     private val knownFacts = HashSet<Fact>() // Set of known facts (ground predicates)
     private val rules = HashSet<Rule>()     // Set of rules
@@ -249,16 +215,6 @@ class ForwardChainingEngineWithUnification {
         return inferredFacts
     }
 
-    /**
-     * Recursive helper function to find rule instantiations via backtracking.
-     * Tries to unify each antecedent of the rule with known facts, maintaining consistent bindings.
-     *
-     * @param rule The rule being processed.
-     * @param antecedentIndex The index of the current antecedent being matched.
-     * @param currentSubst The substitution built up so far by matching previous antecedents.
-     * @param factsToCheck The set of currently known facts to match against.
-     * @param newlyDerived Set to add newly derived consequents to (if a full match is found).
-     */
     private fun findAndApplyRuleInstantiations(
         rule: Rule,
         antecedentIndex: Int,
@@ -312,102 +268,83 @@ class ForwardChainingEngineWithUnification {
     }
 }
 
+fun testHumanMortalInference() {
+    val engine = ForwardChainingEngineWithUnification()
+    val varX = Variable("X")
+    val socrates = Constant("Socrates")
+
+    // Fact: human(Socrates)
+    engine.addFact(Predicate("human", listOf(socrates)))
+
+    // Rule: human(?X) => mortal(?X)
+    engine.addRule(
+        Rule(
+            listOf(Predicate("human", listOf(varX))),
+            Predicate("mortal", listOf(varX))
+        )
+    )
+
+    val result = engine.infer()
+    val expected = Predicate("mortal", listOf(socrates))
+    assert(expected in result) { "Expected $expected to be derived." }
+
+    println("✅ testHumanMortalInference passed.")
+}
+
+fun testPhilosopherIsHuman() {
+    val engine = ForwardChainingEngineWithUnification()
+    val varX = Variable("X")
+    val plato = Constant("Plato")
+
+    // Fact: philosopher(Plato)
+    engine.addFact(Predicate("philosopher", listOf(plato)))
+
+    // Rule: philosopher(?X) => human(?X)
+    engine.addRule(
+        Rule(
+            listOf(Predicate("philosopher", listOf(varX))),
+            Predicate("human", listOf(varX))
+        )
+    )
+
+    val result = engine.infer()
+    val expected = Predicate("human", listOf(plato))
+    assert(expected in result) { "Expected $expected to be derived." }
+
+    println("✅ testPhilosopherIsHuman passed.")
+}
+
+fun testStudentOfDerivedFromTeacherOf() {
+    val engine = ForwardChainingEngineWithUnification()
+    val varX = Variable("X")
+    val varY = Variable("Y")
+    val socrates = Constant("Socrates")
+    val plato = Constant("Plato")
+
+    // Fact: teacherOf(Socrates, Plato)
+    engine.addFact(Predicate("teacherOf", listOf(socrates, plato)))
+
+    // Rule: teacherOf(?X, ?Y) => studentOf(?Y, ?X)
+    engine.addRule(
+        Rule(
+            listOf(Predicate("teacherOf", listOf(varX, varY))),
+            Predicate("studentOf", listOf(varY, varX))
+        )
+    )
+
+    val result = engine.infer()
+    val expected = Predicate("studentOf", listOf(plato, socrates))
+    assert(expected in result) { "Expected $expected to be derived." }
+
+    println("✅ testStudentOfDerivedFromTeacherOf passed.")
+}
 
 // --- Example Usage ---
 
 fun main() {
-    val engine = ForwardChainingEngineWithUnification()
-
-    // Define Variables
-    val varX = Variable("X")
-    val varY = Variable("Y")
-    val varZ = Variable("Z")
-
-    // Define Constants
-    val socrates = Constant("Socrates")
-    val plato = Constant("Plato")
-    val aristotle = Constant("Aristotle")
-    val human = Constant("human")
-    val mortal = Constant("mortal")
-    val philosopher = Constant("philosopher")
-    val teacherOf = Constant("teacherOf")
-    val studentOf = Constant("studentOf")
-
-
-    // Add Initial Facts (must be ground Predicates)
-    engine.addFact(Predicate(human.value.toString(), listOf(socrates))) // human(Socrates)
-    engine.addFact(Predicate(human.value.toString(), listOf(plato)))    // human(Plato)
-    engine.addFact(Predicate(philosopher.value.toString(), listOf(socrates))) // philosopher(Socrates)
-    engine.addFact(Predicate(teacherOf.value.toString(), listOf(socrates, plato))) // teacherOf(Socrates, Plato)
-    engine.addFact(Predicate(teacherOf.value.toString(), listOf(plato, aristotle))) // teacherOf(Plato, Aristotle)
-
-
-    // Add Rules (can contain Variables)
-    // Rule 1: If X is human, then X is mortal.
-    engine.addRule(Rule(
-        antecedents = listOf(Predicate(human.value.toString(), listOf(varX))), // human(?X)
-        consequent = Predicate(mortal.value.toString(), listOf(varX))          // mortal(?X)
-    ))
-
-    // Rule 2: If X is a philosopher, then X is human. (Implicit assumption made explicit)
-    engine.addRule(Rule(
-        antecedents = listOf(Predicate(philosopher.value.toString(), listOf(varX))), // philosopher(?X)
-        consequent = Predicate(human.value.toString(), listOf(varX))                // human(?X) - This might re-derive existing facts, engine handles duplicates.
-    ))
-
-    // Rule 3: Transitivity of teaching: If X taught Y, and Y taught Z, then X taught Z indirectly.
-    // NOTE: Simple forward chaining might loop infinitely if not careful with derived facts.
-    // This engine adds derived facts and checks existence, preventing trivial loops for *identical* facts.
-    // More complex loops (e.g., generating infinitely many different facts) are not prevented beyond the iteration limit.
-    /* // Commented out for simplicity - transitivity can cause issues without careful state management
-       engine.addRule(Rule(
-           antecedents = listOf(
-               Predicate(teacherOf.value.toString(), listOf(varX, varY)), // teacherOf(?X, ?Y)
-               Predicate(teacherOf.value.toString(), listOf(varY, varZ))  // teacherOf(?Y, ?Z)
-           ),
-           consequent = Predicate(teacherOf.value.toString(), listOf(varX, varZ)) // teacherOf(?X, ?Z)
-       ))
-    */
-
-    // Rule 4: If X is the teacher of Y, then Y is the student of X.
-    engine.addRule(Rule(
-        antecedents = listOf(Predicate(teacherOf.value.toString(), listOf(varX, varY))), // teacherOf(?X, ?Y)
-        consequent = Predicate(studentOf.value.toString(), listOf(varY, varX))          // studentOf(?Y, ?X)
-    ))
-
-
-    // Perform Inference
-    val allDerivedFacts = engine.infer()
-
-    // Print results
-    println("\n--- Final Inferred Facts (${allDerivedFacts.size}) ---")
-    allDerivedFacts.sortedBy { it.toString() }.forEach { println("- $it") }
-
-    // Check specific facts
-    val isSocratesMortal = Predicate(mortal.value.toString(), listOf(socrates))
-    if (isSocratesMortal in allDerivedFacts) {
-        println("\nVerified: $isSocratesMortal")
-    }
-
-    val isPlatoMortal = Predicate(mortal.value.toString(), listOf(plato))
-    if (isPlatoMortal in allDerivedFacts) {
-        println("Verified: $isPlatoMortal")
-    }
-
-    val isAristotleMortal = Predicate(mortal.value.toString(), listOf(aristotle))
-    if (isAristotleMortal in allDerivedFacts) {
-        println("Verified: $isAristotleMortal") // This should NOT be derived unless we add human(Aristotle)
-    } else {
-        println("\nNot Derived: $isAristotleMortal (Aristotle's humanity/mortality wasn't established)")
-    }
-
-    val isPlatoStudentOfSocrates = Predicate(studentOf.value.toString(), listOf(plato, socrates))
-    if (isPlatoStudentOfSocrates in allDerivedFacts) {
-        println("Verified: $isPlatoStudentOfSocrates")
-    }
-
-    val isAristotleStudentOfPlato = Predicate(studentOf.value.toString(), listOf(aristotle, plato))
-    if (isAristotleStudentOfPlato in allDerivedFacts) {
-        println("Verified: $isAristotleStudentOfPlato")
-    }
+    testHumanMortalInference()
+    testPhilosopherIsHuman()
+    testStudentOfDerivedFromTeacherOf()
 }
+
+
